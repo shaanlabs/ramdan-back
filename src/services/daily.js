@@ -100,3 +100,4 @@ export async function fetchDailyRecordByDate(trackDate) {
     if (error) throw error;
     return data;
 }
+

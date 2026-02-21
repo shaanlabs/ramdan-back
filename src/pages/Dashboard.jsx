@@ -12,7 +12,7 @@ import FinalSummary from '../components/FinalSummary';
 import Leaderboard from '../components/Leaderboard';
 import Footer from '../components/Footer';
 
-import { getOrCreateDailyRecord, fetchDailyRecord, getTodayDailyId } from '../services/daily';
+import { getOrCreateDailyRecord, fetchDailyRecord, getTodayDailyId, updateFinalScore } from '../services/daily';
 import { fetchSalah, upsertSalah, dbToFrontendSalahBoys, dbToFrontendSalahGirls, getDefaultSalah } from '../services/salah';
 import { fetchQuran, upsertQuran, dbToFrontendQuran, getDefaultQuran } from '../services/quran';
 import { fetchDhikr, upsertDhikr, dbToFrontendDhikr, getDefaultDhikr } from '../services/dhikr';
@@ -42,6 +42,7 @@ function Dashboard() {
     // Debounce timer refs
     const salahTimer = useRef(null);
     const quranTimer = useRef(null);
+    const scoreTimer = useRef(null);
     const dhikrTimer = useRef(null);
     const disciplineTimer = useRef(null);
     const reflectionsTimer = useRef(null);
@@ -131,6 +132,22 @@ function Dashboard() {
         const newScores = calculateFinalScore(dayData);
         setScores(newScores);
 
+
+    // Persist final_score to DB whenever scores change (debounced 600ms)
+    // Only save for today's active day — locked/past days are read-only
+    useEffect(() => {
+        if (isLocked) return; // don't overwrite locked past-day scores
+        if (!currentDailyId) return;
+        if (dataLoading) return; // don't save stale zeros during load
+
+        if (scoreTimer.current) clearTimeout(scoreTimer.current);
+        scoreTimer.current = setTimeout(() => {
+            updateFinalScore(currentDailyId, scores.final);
+        }, 600);
+
+        return () => clearTimeout(scoreTimer.current);
+    }, [scores.final, currentDailyId, isLocked, dataLoading]);
+    
         // Persist aggregate scores only when we have a daily record and the day is editable
         if (!currentDailyId || isLocked) return;
 
